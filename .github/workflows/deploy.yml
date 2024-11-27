@@ -23,28 +23,15 @@ jobs:
           username: "${{ secrets.DOCKER_USERNAME }}"
           password: "${{ secrets.DOCKER_PASSWORD }}"
 
-      - name: Build & Test
+      - name: Build & Push Docker Image
         run: |
           docker build -t ${{ secrets.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:${{ github.sha }} .
-    
-      - name: Determine Environment
-        id: Determine_env
-        run: |
-            if [[ ${{ github.ref }} == 'refs/heads/main' ]]; then
-              echo "::set-output name=env::prod"
-            elif [[ ${{ github.ref }} == 'refs/heads/staging' ]]; then
-              echo "::set-output name=env::staging"
-            else
-              echo "::set-output name=env::dev"
-            fi
+          docker push ${{ secrets.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
 
   deploy:
     needs: build
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v2
-
       - name: Setup SSH key
         run: |
           mkdir -p ~/.ssh
@@ -53,14 +40,17 @@ jobs:
 
       - name: SSH to EC2 and deploy
         run: |
-        ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa martin@54.90.85.153 << 'EOF'
-        mkdir -p /home/martin/app
-        cd /home/martin/app
-        if [ ! -f docker-compose.yml ]; then
-          echo "docker-compose.yml is missing. Exiting."
-          exit 1
-        fi
-        docker-compose down
-        docker-compose pull
-        docker-compose up -d
-      EOF
+          ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa martin@54.90.85.153 << 'EOF'
+          if [ ! -d /home/martin/app ]; then
+            mkdir -p /home/martin/app
+          fi
+          cd /home/martin/app
+          if [ -d .git ]; then
+            git pull
+          else
+            git clone https://github.com/MartinM-17/docker-mysql-nginx-flask-cicd.git .
+          fi
+          docker-compose down
+          docker-compose pull
+          docker-compose up -d
+          EOF
