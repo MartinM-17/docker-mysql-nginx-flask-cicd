@@ -53,11 +53,14 @@ jobs:
 
       - name: SSH to EC2 and deploy
         run: |
-          ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa martin@54.90.85.153 << 'EOF'
-            cd ~/app
-            docker-compose down
-            docker-compose pull
-            docker-compose up -d
-          EOF
-          
-
+        ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa martin@54.90.85.153 << 'EOF'
+        mkdir -p /home/martin/app
+        cd /home/martin/app
+        if [ ! -f docker-compose.yml ]; then
+          echo "docker-compose.yml is missing. Exiting."
+          exit 1
+        fi
+        docker-compose down
+        docker-compose pull
+        docker-compose up -d
+      EOF
